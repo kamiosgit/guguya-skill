@@ -36,6 +36,8 @@ functions:
           description: 知识ID（action=add_to_dataset 时必填）
       required:
         - action
+---
+
 ## 函数执行逻辑
 
 当 Copaw/OpenClaw 调用 `guguya` 函数时，根据 `action` 参数执行对应操作：
