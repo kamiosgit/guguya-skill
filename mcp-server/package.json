@@ -1,0 +1,29 @@
+{
+  "name": "guguya-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP Server for Guguya (咕咕丫) knowledge base - query, create knowledge, manage datasets",
+  "main": "dist/index.js",
+  "bin": {
+    "guguya-mcp-server": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "keywords": ["mcp", "guguya", "knowledge-base", "ai"],
+  "author": "guguya",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
