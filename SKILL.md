@@ -3,39 +3,6 @@ name: guguya-skill
 description: 咕咕丫 (Guguya) 智能知识库管理工具。可以创建知识、管理知识库、向知识库添加内容、与知识库进行AI对话。支持协作知识库和订阅知识库。
 user-invocable: true
 metadata: {"openclaw": {"minVersion": "1.0.0"}}
-functions:
-  - name: guguya_skill
-    description: 咕咕丫知识库操作函数。支持查询知识库对话、创建知识、创建知识库、获取知识库列表、将知识添加到知识库等操作。
-    parameters:
-      type: object
-      properties:
-        action:
-          type: string
-          description: "操作类型：query(知识库对话) | create_knowledge(创建知识) | create_dataset(创建知识库) | list_datasets(获取知识库列表) | add_to_dataset(将知识添加到知识库)"
-          enum: [query, create_knowledge, create_dataset, list_datasets, add_to_dataset]
-        query:
-          type: string
-          description: 对话内容或查询问题（action=query 时必填）
-        knowledge_base:
-          type: string
-          description: 知识库名称（action=query/add_to_dataset 时使用）
-        dataset_id:
-          type: string
-          description: 知识库ID，如果已知可直接传入，无需再查询列表
-        title:
-          type: string
-          description: 知识标题（action=create_knowledge 时使用）
-        content:
-          type: string
-          description: 知识内容（action=create_knowledge 时必填）
-        name:
-          type: string
-          description: 知识库名称（action=create_dataset 时必填）
-        knowledge_id:
-          type: string
-          description: 知识ID（action=add_to_dataset 时必填）
-      required:
-        - action
 ---
 
 # 咕咕丫 (Guguya) 知识库助手
