@@ -8,9 +8,9 @@
 
 1. 登录咕咕丫 Web 端
 2. 进入「个人设置 → API 应用」
-3. 点击「创建应用」，填写名称（如「我的 OpenClaw 接入」）
+3. 点击「创建应用」，填写名称（如「我的 AI Agent 接入」）
 4. 复制 AppID 和 AppKey
-5. 在 OpenClaw 中配置：
+5. 在 AI Agent 平台环境变量中配置：
    ```
    GUGUYA_APP_ID=app_xxxxxxxxxxxxxxxx
    GUGUYA_APP_KEY=sk-xxxxxxxxxxxxxxxx

@@ -1,45 +1,50 @@
 ---
 name: guguya
-description: 咕咕丫 (Guguya) 智能知识库管理工具。可以创建知识、管理知识库、向知识库添加内容、与知识库进行AI对话。支持协作知识库和订阅知识库。
+description: 咕咕丫(Guguya)智能知识库管理工具。创建知识、管理知识库、与知识库AI对话。支持协作和订阅知识库。
+version: 1.0.0
 user-invocable: true
-metadata: {"openclaw": {"minVersion": "1.0.0"}}
+metadata: {"openclaw": {"requires": {"env": ["GUGUYA_API_BASE", "GUGUYA_APP_ID", "GUGUYA_APP_KEY"]}, "primaryEnv": "GUGUYA_APP_ID", "emoji": "📚", "minVersion": "1.0.0"}}
 ---
 
 # 咕咕丫 (Guguya) 知识库助手
 
-## 前提条件
+> **配置型技能说明**：本技能适用于所有主流 AI Agent 平台（QwenPaw、QClaw、Minimax MaxClaw、Kimi Claw、OpenClaw 等）。AI Agent 无需调用本地函数，应直接使用平台内置的 HTTP 请求能力（如 `http_request`、`fetch`、`curl` 或其他网络请求工具）来执行以下 API 操作。
 
-使用前需要在 OpenClaw 配置中设置以下环境变量：
+---
+
+## 环境变量配置
+
+使用前请在平台配置中设置以下环境变量：
 
 | 变量名 | 说明 | 示例 |
 |--------|------|------|
-| `GUGUYA_API_BASE` | API 服务地址 | `https://api.guguya.com` |
-| `GUGUYA_APP_ID` | 应用 AppID（在咕咕丫个人设置 → API 应用中创建） | `app_a1b2c3d4e5f6g7h8` |
-| `GUGUYA_APP_KEY` | 应用 AppKey（仅创建时可见，请妥善保存） | `sk-xxxxxxxxxxxxxxxx` |
+| `GUGUYA_API_BASE` | API 服务地址（可选，有默认值） | `https://api.guguya.com` |
+| `GUGUYA_APP_ID` | 应用 AppID | `app_a1b2c3d4e5f6g7h8` |
+| `GUGUYA_APP_KEY` | 应用 AppKey（仅创建时可见） | `sk-xxxxxxxxxxxxxxxx` |
 
 > 在咕咕丫 Web 端：**个人设置 → API 应用 → 创建应用**，即可获取 AppID 和 AppKey。
 
 ---
 
-## 功能说明
-
-本技能提供以下能力：
-
-1. **创建知识** — 将文本内容保存为知识条目
-2. **创建知识库** — 新建知识库并命名
-3. **添加到知识库** — 将知识条目关联到指定知识库
-4. **知识对话** — 与指定知识库进行 AI 问答
-5. **查看知识库列表** — 列出当前用户的所有知识库
-
----
-
-## 请求规范
+## 通用请求规范
 
 所有 API 请求使用以下格式：
 
-- **Base URL**：环境变量 `GUGUYA_API_BASE`（默认 `https://api.guguya.com`）
-- **认证 Header**：`Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}`
+- **Base URL**：`${GUGUYA_API_BASE}`（默认 `https://api.guguya.com`）
+- **认证 Header**：`Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}`
 - **Content-Type**：`application/json`
+
+---
+
+## 功能说明
+
+本技能提供以下 5 个操作：
+
+1. **创建知识** — 将文本内容保存为知识条目
+2. **创建知识库** — 新建知识库并命名
+3. **将知识添加到知识库** — 关联知识条目到指定知识库（多步操作）
+4. **与知识库对话** — 对指定知识库进行 AI 问答
+5. **获取知识库列表** — 列出当前用户的所有知识库
 
 ---
 
@@ -49,11 +54,11 @@ metadata: {"openclaw": {"minVersion": "1.0.0"}}
 
 **触发词**：「帮我记录」「保存这条知识」「记一下」「添加知识」「保存」
 
-**调用接口**：
+**HTTP 请求模板**：
 
-```
-POST {GUGUYA_API_BASE}/api/knowledge
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+POST ${GUGUYA_API_BASE}/api/knowledge
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 Content-Type: application/json
 
 {
@@ -84,11 +89,11 @@ Content-Type: application/json
 
 **触发词**：「创建知识库」「新建一个知识库」「建一个库」「新建库」
 
-**调用接口**：
+**HTTP 请求模板**：
 
-```
-POST {GUGUYA_API_BASE}/api/datasets
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+POST ${GUGUYA_API_BASE}/api/datasets
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 Content-Type: application/json
 
 {
@@ -121,20 +126,20 @@ Content-Type: application/json
 
 **步骤 1**：如未知 datasetId，先查询知识库列表找到目标库
 
-```
-GET {GUGUYA_API_BASE}/api/datasets
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+GET ${GUGUYA_API_BASE}/api/datasets
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 ```
 
 响应为知识库数组，根据用户说的名称找到对应的 `_id`。
 
-**步骤 2**：创建知识（参考操作1）
+**步骤 2**：创建知识（参考操作 1）
 
 **步骤 3**：关联到目标知识库
 
-```
-POST {GUGUYA_API_BASE}/api/knowledge/batch/add-to-dataset
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+POST ${GUGUYA_API_BASE}/api/knowledge/batch/add-to-dataset
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 Content-Type: application/json
 
 {
@@ -151,20 +156,18 @@ Content-Type: application/json
 
 **触发词**：「问问XX知识库」「和XX库对话」「在XX知识库里查一下」「问一下」「查一下」
 
-**执行步骤**：
-
 **步骤 1**：如用户指定了知识库名称，先查询知识库列表获取 datasetId
 
-```
-GET {GUGUYA_API_BASE}/api/datasets
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+GET ${GUGUYA_API_BASE}/api/datasets
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 ```
 
 **步骤 2**：发起流式对话
 
-```
-POST {GUGUYA_API_BASE}/api/chat/stream
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+POST ${GUGUYA_API_BASE}/api/chat/stream
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 Content-Type: application/json
 
 {
@@ -176,7 +179,7 @@ Content-Type: application/json
 
 > **注意**：
 > - 不指定知识库时，`datasetIds` 可不传，系统使用用户的默认知识库
-> - **协作知识库**（被邀请加入的）和**订阅知识库**（付费订阅的）均可通过传入对应 datasetId 发起对话
+> - 协作知识库和订阅知识库均可通过传入对应 datasetId 发起对话
 > - 流式响应为 Server-Sent Events (SSE) 格式，逐步输出回答内容
 
 **步骤 3**：读取 SSE 流式响应并实时输出给用户
@@ -187,16 +190,28 @@ Content-Type: application/json
 
 **触发词**：「我有哪些知识库」「列出我的知识库」「查看我的库」「知识库列表」
 
-**调用接口**：
+**HTTP 请求模板**：
 
-```
-GET {GUGUYA_API_BASE}/api/datasets
-Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
+```http
+GET ${GUGUYA_API_BASE}/api/datasets
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
 ```
 
 **成功响应**（HTTP 200）：返回知识库数组，每个包含 `_id`、`name`、`description`、`knowledgeCount` 等字段。
 
 **回复用户**：列出所有知识库名称和知识数量，格式美观易读。
+
+---
+
+## 给 AI Agent 的执行指引
+
+**重要**：本技能是配置型技能，不包含任何本地函数实现。当用户触发以上操作时，你需要：
+
+1. 识别用户意图，匹配对应的操作指令
+2. 从环境变量中读取 `GUGUYA_API_BASE`（默认 `https://api.guguya.com`）、`GUGUYA_APP_ID`、`GUGUYA_APP_KEY`
+3. 使用你平台内置的 HTTP 请求工具（`http_request` / `fetch` / `curl` / 网络请求等）按模板发起请求
+4. 解析响应，向用户返回友好的结果说明
+5. 遇到错误时，参考下方错误处理表给出对应提示
 
 ---
 
@@ -222,7 +237,7 @@ Authorization: AppKey {GUGUYA_APP_ID}:{GUGUYA_APP_KEY}
 Agent 执行：
 1. 识别为创建知识操作
 2. 提取标题：「React 18 并发特性 useTransition」
-3. 调用 POST /api/knowledge
+3. 使用 http_request 工具调用 POST /api/knowledge
 4. 返回：✅ 已为你保存这条知识「React 18 并发特性 useTransition」，知识ID：xxx
 ```
 
