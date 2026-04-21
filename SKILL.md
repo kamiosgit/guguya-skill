@@ -8,7 +8,66 @@ metadata: {"openclaw": {"requires": {"env": ["GUGUYA_API_BASE", "GUGUYA_APP_ID",
 
 # 咕咕丫 (Guguya) 知识库助手
 
-> **配置型技能说明**：本技能适用于所有主流 AI Agent 平台（QwenPaw、QClaw、Minimax MaxClaw、Kimi Claw、OpenClaw 等）。AI Agent 无需调用本地函数，应直接使用平台内置的 HTTP 请求能力（如 `http_request`、`fetch`、`curl` 或其他网络请求工具）来执行以下 API 操作。
+## 接入方式
+
+咕咕丫支持两种接入 AI Agent 的方式，请根据你的平台选择：
+
+### 方式一：MCP 服务（推荐）
+
+适用于所有支持 MCP (Model Context Protocol) 的平台，如 QwenPaw、Claude Desktop、Cursor 等。MCP 方式提供独立的工具函数，AI Agent 可直接调用，**无需平台内置 HTTP 请求能力**。
+
+**安装步骤：**
+
+1. 下载 MCP 服务器代码（从 guguya-skill 仓库的 `mcp-server` 目录）
+2. 安装依赖并构建：
+   ```bash
+   cd mcp-server
+   npm install
+   npm run build
+   ```
+3. 在平台的 MCP 配置中添加：
+   ```json
+   {
+     "key": "guguya",
+     "name": "guguya",
+     "description": "咕咕丫知识库管理工具",
+     "enabled": true,
+     "transport": "stdio",
+     "command": "node",
+     "args": [
+       "<MCP服务器路径>/dist/index.js"
+     ],
+     "env": {
+       "GUGUYA_API_BASE": "https://api.guguya.com",
+       "GUGUYA_APP_ID": "<你的AppID>",
+       "GUGUYA_APP_KEY": "<你的AppKey>"
+     }
+   }
+   ```
+4. 将 `<MCP服务器路径>` 替换为实际的 mcp-server 目录绝对路径
+5. 将 AppID 和 AppKey 替换为你在咕咕丫 Web 端创建的应用凭证
+
+**MCP 提供的工具函数：**
+
+| 工具名称 | 功能 |
+|---------|------|
+| `list_datasets` | 获取知识库列表 |
+| `query_knowledge` | 与知识库进行 AI 对话 |
+| `create_knowledge` | 创建知识条目 |
+| `create_dataset` | 创建知识库 |
+| `add_knowledge_to_dataset` | 将知识添加到知识库 |
+
+> **提示**：如果你在使用 Skill 方式时遇到"无法执行 HTTP 请求"或"函数未找到"等问题，请切换到 MCP 方式。
+
+### 方式二：Skill 配置（需平台支持 HTTP 工具）
+
+适用于内置 HTTP 请求工具的平台（如 CoPaw、OpenClaw 等）。AI Agent 读取下方的 API 操作指令后，使用平台的 `http_request`、`fetch` 或 `curl` 工具执行调用。
+
+> **注意**：如果你的平台没有内置 HTTP 请求工具（如 QwenPaw），Skill 方式将无法工作，请使用上方的 MCP 方式。
+
+---
+
+> 以下是 Skill 方式（方式二）的 API 操作指令。如果你的平台不支持 HTTP 请求工具，请使用上方的 MCP 方式（方式一）。
 
 ---
 
@@ -271,3 +330,4 @@ Agent 执行：
 - **知识处理时间**：创建知识后，系统会异步进行内容解析和向量化（通常 10-60 秒），完成后才能被检索到
 - **知识库范围**：如果 AppKey 创建时绑定了特定知识库，则所有操作仅限该知识库，无法操作其他知识库
 - **协作与订阅**：对话时支持用户有权访问的所有知识库（自有、协作、订阅），通过传入正确的 datasetId 即可
+- **接入方式选择**：推荐优先使用 MCP 方式，兼容性最好。如果平台不支持 MCP，再使用 Skill 方式（需平台内置 HTTP 请求工具）
