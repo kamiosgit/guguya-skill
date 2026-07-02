@@ -138,6 +138,122 @@ const TOOLS: Tool[] = [
       required: ["knowledge_id"],
     },
   },
+  // ── 内容工坊工具 ──────────────────────────────────────────
+  {
+    name: "upload_image",
+    description: "上传图片到咕咕丫（返回图片公网 URL）。支持 base64 图片数据，用于在创建内容前先把图片上传获取 URL，再将 URL 作为附件传给 create_content。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        base64_data: {
+          type: "string",
+          description: "图片的 base64 编码数据（必填）。可包含或不包含 data:image/xxx;base64, 前缀，均可识别。",
+        },
+        filename: {
+          type: "string",
+          description: "图片文件名（选填，如 image.png）。不填时自动生成。",
+        },
+      },
+      required: ["base64_data"],
+    },
+  },
+  {
+    name: "create_content",
+    description: "将文案/脚本/素材存入咕咕丫内容工坊，支持指定目标渠道（朋友圈、公众号、小红书等）和内容用途，支持附带图片附件。如有本地图片，请先调用 upload_image 上传获取 URL 后再传入 attachments。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "内容标题（必填，50字以内）",
+        },
+        content: {
+          type: "string",
+          description: "内容正文（必填，支持 HTML 或纯文本）",
+        },
+        channel: {
+          type: "string",
+          description: "目标渠道：moments(朋友圈)/wechat_official(公众号)/xiaohongshu(小红书)/zhihu(知乎)/douyin(抖音)/bilibili(B站)/weibo(微博)/video_account(视频号)/toutiao(今日头条)/custom(自定义)",
+          enum: ["moments", "wechat_official", "xiaohongshu", "zhihu", "toutiao", "douyin", "bilibili", "weibo", "video_account", "custom"],
+        },
+        purpose: {
+          type: "string",
+          description: "内容用途：brand(品牌宣传)/product(产品推广)/knowledge(知识分享)/personal_ip(个人IP)/marketing(活动营销)/crm(客户维护)/internal(内部沟通)",
+          enum: ["brand", "product", "knowledge", "personal_ip", "marketing", "crm", "internal"],
+        },
+        tags: {
+          type: "array",
+          description: "自定义标签",
+          items: { type: "string" },
+        },
+        attachments: {
+          type: "array",
+          description: "图片附件列表（选填）。每项为 { fileUrl, fileName, fileType }。fileUrl 需为公网可访问的图片地址，可通过 upload_image 工具先上传获取。",
+          items: {
+            type: "object",
+            properties: {
+              fileUrl: { type: "string", description: "图片公网 URL（必填）" },
+              fileName: { type: "string", description: "文件名（选填）" },
+              fileType: { type: "string", description: "文件类型，如 image（选填，默认 image）" },
+            },
+            required: ["fileUrl"],
+          },
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "query_content",
+    description: "查询咕咕丫内容工坊中的内容列表，支持按渠道、状态、关键词搜索。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keyword: {
+          type: "string",
+          description: "搜索关键词（标题和内容）",
+        },
+        channel: {
+          type: "string",
+          description: "渠道筛选",
+          enum: ["moments", "wechat_official", "xiaohongshu", "zhihu", "toutiao", "douyin", "bilibili", "weibo", "video_account", "custom"],
+        },
+        status: {
+          type: "string",
+          description: "状态筛选：draft(草稿)/published(已发布)/pending_publish(待发布)/archived(已归档)",
+          enum: ["draft", "published", "pending_publish", "archived"],
+        },
+        page: {
+          type: "number",
+          description: "页码，默认1",
+        },
+        pageSize: {
+          type: "number",
+          description: "每页数量，默认20",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "update_content_status",
+    description: "更新咕咕丫内容工坊中内容的状态（归档/发布/草稿等）。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        content_id: {
+          type: "string",
+          description: "内容条目 ID（必填）",
+        },
+        status: {
+          type: "string",
+          description: "目标状态（必填）：draft(草稿)/published(已发布)/pending_publish(待发布)/archived(已归档)",
+          enum: ["draft", "published", "pending_publish", "archived"],
+        },
+      },
+      required: ["content_id", "status"],
+    },
+  },
 ];
 
 // ── 工具辅助：按名称查找知识库 ID ─────────────────────────────
@@ -240,6 +356,134 @@ async function handleAddToDataset(args: {
   return `✅ 知识已成功添加到知识库！\n知识 ID：${args.knowledge_id}\n知识库 ID：${datasetId}`;
 }
 
+// ── 内容工坊处理器 ──────────────────────────────────────────
+
+async function handleUploadImage(args: {
+  base64_data: string;
+  filename?: string;
+}): Promise<string> {
+  // 兼容带/不带 data:image/xxx;base64, 前缀
+  let base64Data = args.base64_data.trim();
+  const dataUrlMatch = base64Data.match(/^data:image\/[a-zA-Z]+;base64,(.+)$/);
+  if (dataUrlMatch) {
+    base64Data = dataUrlMatch[1];
+  }
+
+  const res = await request("POST", "/api/upload/base64", {
+    base64Data,
+    folder: "content-studio/images",
+  }) as {
+    data?: { url?: string; filename?: string; size?: number; contentType?: string };
+  };
+
+  const data = res?.data || {};
+  if (!data.url) throw new Error("上传成功但未返回图片 URL");
+
+  return `✅ 图片上传成功！\nURL：${data.url}\n文件名：${args.filename || data.filename || ""}\n大小：${data.size ? Math.round(data.size / 1024) + "KB" : "未知"}`;
+}
+
+async function handleCreateContent(args: {
+  title: string;
+  content: string;
+  channel?: string;
+  purpose?: string;
+  tags?: string[];
+  attachments?: Array<{ fileUrl: string; fileName?: string; fileType?: string }>;
+}): Promise<string> {
+  const body: Record<string, unknown> = {
+    title: args.title,
+    content: args.content,
+  };
+  if (args.channel) body.channel = args.channel;
+  if (args.purpose) body.purpose = args.purpose;
+  if (args.tags && args.tags.length > 0) body.tags = args.tags;
+  if (args.attachments && args.attachments.length > 0) {
+    body.attachments = args.attachments.map((a, i) => ({
+      fileUrl: a.fileUrl,
+      fileName: a.fileName || `image-${i + 1}`,
+      fileType: a.fileType || "image",
+      sortOrder: i,
+    }));
+  }
+
+  const res = await request("POST", "/api/content-studio/items", body) as {
+    data?: { _id?: string; title?: string; status?: string };
+    _id?: string;
+  };
+
+  const id = res?.data?._id || (res as { _id?: string })?._id;
+  const savedTitle = res?.data?.title || args.title;
+  const channelMap: Record<string, string> = {
+    moments: "朋友圈", wechat_official: "公众号", xiaohongshu: "小红书",
+    zhihu: "知乎", douyin: "抖音", bilibili: "B站",
+    weibo: "微博", video_account: "视频号", toutiao: "今日头条", custom: "自定义",
+  };
+  const channelName = args.channel ? channelMap[args.channel] || args.channel : "未指定";
+  return `✅ 内容已存入内容工坊！\n标题：${savedTitle}\nID：${id}\n目标渠道：${channelName}`;
+}
+
+async function handleQueryContent(args: {
+  keyword?: string;
+  channel?: string;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<string> {
+  const params = new URLSearchParams();
+  if (args.keyword) params.set("search", args.keyword);
+  if (args.channel) params.set("channel", args.channel);
+  if (args.status) params.set("status", args.status);
+  params.set("page", String(args.page || 1));
+  params.set("pageSize", String(args.pageSize || 20));
+
+  const res = await request("GET", `/api/content-studio/items?${params.toString()}`) as {
+    data?: {
+      items?: Array<{ _id: string; title: string; status: string; channels?: Array<{ channel: string }>; updatedAt?: string }>;
+      total?: number;
+    };
+  };
+
+  const items = res?.data?.items || [];
+  const total = res?.data?.total || 0;
+
+  if (items.length === 0) return "内容工坊中暂无匹配的内容。";
+
+  const channelMap: Record<string, string> = {
+    moments: "朋友圈", wechat_official: "公众号", xiaohongshu: "小红书",
+    zhihu: "知乎", douyin: "抖音", bilibili: "B站",
+    weibo: "微博", video_account: "视频号", toutiao: "今日头条", custom: "自定义",
+  };
+  const statusMap: Record<string, string> = {
+    draft: "草稿", published: "已发布", pending_publish: "待发布", archived: "已归档",
+  };
+
+  const lines = items.map((item, i) => {
+    const channels = (item.channels || []).map((c) => channelMap[c.channel] || c.channel).join("、") || "无";
+    const status = statusMap[item.status] || item.status;
+    return `${i + 1}. 【${item.title}】 ID: ${item._id}  状态: ${status}  渠道: ${channels}`;
+  });
+
+  return `共找到 ${total} 条内容：\n\n${lines.join("\n")}`;
+}
+
+async function handleUpdateContentStatus(args: {
+  content_id: string;
+  status: string;
+}): Promise<string> {
+  const res = await request("PATCH", `/api/content-studio/items/${args.content_id}`, {
+    status: args.status,
+  }) as {
+    data?: { _id?: string; title?: string; status?: string };
+  };
+
+  const title = res?.data?.title || "";
+  const statusMap: Record<string, string> = {
+    draft: "草稿", published: "已发布", pending_publish: "待发布", archived: "已归档",
+  };
+  const statusName = statusMap[args.status] || args.status;
+  return `✅ 内容状态已更新！\n标题：${title}\nID：${args.content_id}\n新状态：${statusName}`;
+}
+
 // ── MCP Server 初始化 ─────────────────────────────────────────
 const server = new Server(
   { name: "guguya-mcp-server", version: "1.0.0" },
@@ -270,6 +514,18 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         break;
       case "add_knowledge_to_dataset":
         result = await handleAddToDataset(safeArgs as Parameters<typeof handleAddToDataset>[0]);
+        break;
+      case "upload_image":
+        result = await handleUploadImage(safeArgs as Parameters<typeof handleUploadImage>[0]);
+        break;
+      case "create_content":
+        result = await handleCreateContent(safeArgs as Parameters<typeof handleCreateContent>[0]);
+        break;
+      case "query_content":
+        result = await handleQueryContent(safeArgs as Parameters<typeof handleQueryContent>[0]);
+        break;
+      case "update_content_status":
+        result = await handleUpdateContentStatus(safeArgs as Parameters<typeof handleUpdateContentStatus>[0]);
         break;
       default:
         throw new Error(`未知工具：${name}`);

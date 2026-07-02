@@ -1,7 +1,7 @@
 ---
 name: guguya
-description: 咕咕丫(Guguya)智能知识库管理工具。创建知识、管理知识库、与知识库AI对话。支持协作和订阅知识库。
-version: 1.0.0
+description: 咕咕丫(Guguya)智能知识库与内容工坊管理工具。创建知识、管理知识库、与知识库AI对话、管理内容工坊素材、上传图片附件、发布内容到多渠道草稿箱。
+version: 1.2.0
 user-invocable: true
 metadata: {"openclaw": {"requires": {"env": ["GUGUYA_API_BASE", "GUGUYA_APP_ID", "GUGUYA_APP_KEY"]}, "primaryEnv": "GUGUYA_APP_ID", "emoji": "📚", "minVersion": "1.0.0"}}
 ---
@@ -56,6 +56,10 @@ metadata: {"openclaw": {"requires": {"env": ["GUGUYA_API_BASE", "GUGUYA_APP_ID",
 | `create_knowledge` | 创建知识条目 |
 | `create_dataset` | 创建知识库 |
 | `add_knowledge_to_dataset` | 将知识添加到知识库 |
+| `upload_image` | 上传图片（base64）返回公网 URL |
+| `create_content` | 创建内容条目（文案/脚本/素材，支持图片附件） |
+| `query_content` | 查询内容列表（按渠道/状态/关键词） |
+| `update_content_status` | 更新内容状态（归档/发布等） |
 
 > **提示**：如果你在使用 Skill 方式时遇到"无法执行 HTTP 请求"或"函数未找到"等问题，请切换到 MCP 方式。
 
@@ -97,13 +101,20 @@ metadata: {"openclaw": {"requires": {"env": ["GUGUYA_API_BASE", "GUGUYA_APP_ID",
 
 ## 功能说明
 
-本技能提供以下 5 个操作：
+本技能提供以下 9 个操作：
 
+**知识管理：**
 1. **创建知识** — 将文本内容保存为知识条目
 2. **创建知识库** — 新建知识库并命名
 3. **将知识添加到知识库** — 关联知识条目到指定知识库（多步操作）
 4. **与知识库对话** — 对指定知识库进行 AI 问答
 5. **获取知识库列表** — 列出当前用户的所有知识库
+
+**内容工坊：**
+6. **上传图片** — 将 base64 图片上传至咕咕丫，返回公网 URL（用于创建内容时附带图片附件）
+7. **创建内容** — 将文案/脚本/素材存入内容工坊，支持附带图片附件
+8. **查询内容** — 搜索内容工坊中的内容列表
+9. **更新内容状态** — 归档/发布/更新内容状态
 
 ---
 
@@ -331,3 +342,199 @@ Agent 执行：
 - **知识库范围**：如果 AppKey 创建时绑定了特定知识库，则所有操作仅限该知识库，无法操作其他知识库
 - **协作与订阅**：对话时支持用户有权访问的所有知识库（自有、协作、订阅），通过传入正确的 datasetId 即可
 - **接入方式选择**：推荐优先使用 MCP 方式，兼容性最好。如果平台不支持 MCP，再使用 Skill 方式（需平台内置 HTTP 请求工具）
+
+---
+
+## 内容工坊操作
+
+### 6. 上传图片
+
+**触发词**：「上传图片」「传张图」「把这张图传上去」
+
+**HTTP 请求模板**：
+
+```http
+POST ${GUGUYA_API_BASE}/api/upload/base64
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
+Content-Type: application/json
+
+{
+  "base64Data": "<图片的 base64 编码数据，可不含 data:image/xxx;base64, 前缀>",
+  "folder": "content-studio/images"
+}
+```
+
+**成功响应**（HTTP 200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://oss.guguya.com/content-studio/images/xxx.jpg",
+    "filename": "xxx.jpg",
+    "size": 102400,
+    "contentType": "image/jpeg"
+  }
+}
+```
+
+**回复用户**：告知图片上传成功，返回的 `url` 可用于创建内容时的 `attachments` 参数。
+
+> **提示**：如有本地图片需要随内容一起保存，请先调用此接口上传获取 URL，再将 URL 作为 `attachments` 传给「创建内容」接口。
+
+---
+
+### 7. 创建内容
+
+**触发词**：「存入内容工坊」「保存这篇文案」「帮我创建内容」「发到内容工坊」
+
+**HTTP 请求模板**：
+
+```http
+POST ${GUGUYA_API_BASE}/api/content-studio/items
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
+Content-Type: application/json
+
+{
+  "title": "<内容标题，50字以内>",
+  "content": "<内容正文，支持HTML或纯文本>",
+  "channel": "<目标渠道，可选>",
+  "purpose": "<内容用途，可选>",
+  "tags": ["<标签1>", "<标签2>"],
+  "attachments": [
+    {
+      "fileUrl": "<图片公网URL，可通过上传图片接口获取>",
+      "fileName": "<文件名，可选>",
+      "fileType": "image"
+    }
+  ]
+}
+```
+
+**channel 可选值**：`moments`(朋友圈) | `wechat_official`(公众号) | `xiaohongshu`(小红书) | `zhihu`(知乎) | `douyin`(抖音) | `bilibili`(B站) | `weibo`(微博) | `video_account`(视频号) | `toutiao`(今日头条) | `custom`(自定义)
+
+**purpose 可选值**：`brand`(品牌宣传) | `product`(产品推广) | `knowledge`(知识分享) | `personal_ip`(个人IP) | `marketing`(活动营销) | `crm`(客户维护) | `internal`(内部沟通)
+
+**attachments 说明**（可选）：图片附件列表，每项含 `fileUrl`（必填，公网 URL）、`fileName`（选填）、`fileType`（选填，默认 image）。若图片是本地文件或 base64，请先调用「上传图片」接口获取 URL。
+
+**成功响应**（HTTP 200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "<contentId>",
+    "title": "内容标题",
+    "status": "draft"
+  }
+}
+```
+
+**回复用户**：创建成功后，告知用户内容 ID 和标题。
+
+---
+
+### 8. 查询内容
+
+**触发词**：「内容工坊有什么内容」「查一下我的文案」「搜索内容」「列出内容」
+
+**HTTP 请求模板**：
+
+```http
+GET ${GUGUYA_API_BASE}/api/content-studio/items?search=<关键词>&channel=<渠道>&status=<状态>&page=1&pageSize=20
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
+```
+
+**查询参数**（均可选）：
+- `search`：搜索关键词（标题和内容）
+- `channel`：按渠道筛选
+- `status`：按状态筛选（draft/published/pending_publish/archived）
+- `page` / `pageSize`：分页
+
+**成功响应**（HTTP 200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "_id": "<contentId>",
+        "title": "内容标题",
+        "status": "draft",
+        "source": "manual",
+        "channels": [{"channel": "moments"}],
+        "updatedAt": "2025-01-01T00:00:00Z"
+      }
+    ],
+    "total": 10,
+    "page": 1,
+    "pageSize": 20
+  }
+}
+```
+
+**回复用户**：列出内容标题、状态、渠道和更新时间，格式美观易读。
+
+---
+
+### 9. 更新内容状态
+
+**触发词**：「归档这篇内容」「发布内容」「更新内容状态」
+
+**HTTP 请求模板**：
+
+```http
+PATCH ${GUGUYA_API_BASE}/api/content-studio/items/<contentId>
+Authorization: AppKey ${GUGUYA_APP_ID}:${GUGUYA_APP_KEY}
+Content-Type: application/json
+
+{
+  "status": "<目标状态>"
+}
+```
+
+**status 可选值**：`draft`(草稿) | `published`(已发布) | `pending_publish`(待发布) | `archived`(已归档)
+
+**成功响应**（HTTP 200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "<contentId>",
+    "title": "内容标题",
+    "status": "archived"
+  }
+}
+```
+
+**回复用户**：告知状态已更新，显示新状态。
+
+---
+
+### 内容工坊使用示例
+
+#### 示例：存入朋友圈文案
+
+```
+用户：「帮我把这段文案存到内容工坊，发朋友圈用的：今天天气真好，适合出去走走 🌞」
+
+Agent 执行：
+1. 识别为创建内容操作
+2. 提取标题：「今天天气真好」
+3. 使用 http_request 工具调用 POST /api/content-studio/items，channel=moments, purpose=personal_ip
+4. 返回：✅ 内容已存入内容工坊「今天天气真好」，目标渠道：朋友圈
+```
+
+#### 示例：查询并归档内容
+
+```
+用户：「查一下我内容工坊里关于“营销”的内容，然后把旧的归档」
+
+Agent 执行：
+1. 调用 GET /api/content-studio/items?search=营销
+2. 列出搜索结果给用户确认
+3. 用户确认后，调用 PATCH /api/content-studio/items/<id>，status=archived
+4. 返回：✅ 已将「营销活动方案」归档
+```
